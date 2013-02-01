@@ -5,7 +5,8 @@ import scala.collection.mutable.ArrayBuffer
 abstract class Node {
   def emptyNode: Boolean
   def getChild(features : FeatureList): Node
-  def getPrediction: Double = 0.0
+  def getNodePrediction: Double = 0.0
+  def getPrediction(features : FeatureList): Double = 0.0
   def insertLeft(node: Node): Unit = {}
   def insertRight(node: Node): Unit = {}
   def isLeaf: Boolean
@@ -25,7 +26,16 @@ abstract class DataNode extends Node {
   
   override def emptyNode: Boolean = false
   override def getChild(features: FeatureList): Node
-  override def getPrediction: Double = prediction
+  override def getNodePrediction: Double = prediction
+  override def getPrediction(features : FeatureList): Double = {
+    var pred = getNodePrediction
+    var child = getChild(features)
+    while (!child.emptyNode) {
+      pred = child.getNodePrediction
+      child = child.getChild(features)
+    }
+    pred
+  }
   override def insertLeft(node: Node): Unit = { left = node }
   override def insertRight(node: Node): Unit = { right = node }
   override def isLeaf: Boolean = left == null && right == null
