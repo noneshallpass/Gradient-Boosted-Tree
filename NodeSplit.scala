@@ -90,7 +90,8 @@ class FeatureValueAndData(val featureValue: FeatureValue,
 //
 // for (point <- allPoints) categoricalNodeSplit.process(point)
 // bestSplit = categoricalNodeSplit.findBestSplit()
-class CategoricalNodeSplit(val featureIndex: Int) extends NodeSplit {
+class CategoricalNodeSplit(val node: Node,
+    val featureIndex: Int) extends NodeSplit {
   // Accumulate statistics regarding a point of data.
   def process(point: Point): Unit = {
     val featureValue = point.featureValues(featureIndex)
@@ -179,7 +180,8 @@ class CategoricalNodeSplit(val featureIndex: Int) extends NodeSplit {
 //
 // for (point <- allPoints) orederedNodeSplit.process(point)
 // bestSplit = orderedNodeSplit.findBestSplit()
-class OrderedNodeSplit(val featureIndex: Int) extends NodeSplit {
+class OrderedNodeSplit(val node: Node,
+    val featureIndex: Int) extends NodeSplit {
   def process(point: Point): Unit = {
     data += new FeatureValueAndData(
         point.featureValues(featureIndex), 1, point.yValue)

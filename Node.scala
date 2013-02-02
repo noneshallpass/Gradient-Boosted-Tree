@@ -5,6 +5,9 @@ import scala.collection.mutable.ArrayBuffer
 abstract class Node {
   def emptyNode: Boolean
   def getChild(features : FeatureList): Node
+  def getLeftChild: Node
+  def getRightChild: Node
+  def getId: Int = -1
   def getNodePrediction: Double = 0.0
   def getPrediction(features : FeatureList): Double = 0.0
   def insertLeft(node: Node): Unit = {}
@@ -16,16 +19,22 @@ class EmptyNode extends Node {
   override def emptyNode: Boolean = true
   override def isLeaf: Boolean = true
   override def getChild(features : FeatureList): Node = new EmptyNode
+  override def getLeftChild: Node = new EmptyNode
+  override def getRightChild: Node = new EmptyNode
 }
 
 abstract class DataNode extends Node {
-  var left: Node = null
-  var right: Node = null
+  val id: Int
+  var left: Node = new EmptyNode
+  var right: Node = new EmptyNode
   val featureIndex: Int = -1
   val prediction: Double = 0.0
   
   override def emptyNode: Boolean = false
   override def getChild(features: FeatureList): Node
+  override def getLeftChild: Node = left
+  override def getRightChild: Node = right
+  override def getId = id
   override def getNodePrediction: Double = prediction
   override def getPrediction(features : FeatureList): Double = {
     var pred = getNodePrediction
@@ -38,25 +47,27 @@ abstract class DataNode extends Node {
   }
   override def insertLeft(node: Node): Unit = { left = node }
   override def insertRight(node: Node): Unit = { right = node }
-  override def isLeaf: Boolean = left == null && right == null
+  override def isLeaf: Boolean = left.emptyNode && right.emptyNode
 }
 
-class OrderedNode(val splitValue: FeatureValue) extends DataNode {
+class OrderedNode(val id: Int,
+    val splitValue: FeatureValue) extends DataNode {
   override def getChild(features: FeatureList): Node = {
-    if (isLeaf ||
-        features.featureValues.length <= featureIndex) new EmptyNode
-    if (features.featureValues(featureIndex) < splitValue) left
-    right
+    if (features.featureValues.length <= featureIndex) new EmptyNode
+    else if (isLeaf) this
+    else if (features.featureValues(featureIndex) < splitValue) left
+    else right
   }
 }
 
-class CategoricalNode(values: ArrayBuffer[FeatureValue]) extends DataNode {
+class CategoricalNode(val id: Int,
+    val values: ArrayBuffer[FeatureValue]) extends DataNode {
   val categories: Set[FeatureValue] = values.toSet[FeatureValue]
   
   override def getChild(features: FeatureList): Node = {
-    if (isLeaf ||
-        features.featureValues.length <= featureIndex) new EmptyNode
+	if (features.featureValues.length <= featureIndex) new EmptyNode
+    else if (isLeaf) this
     if (categories.contains(features.featureValues(featureIndex))) left
-    right
+    else right
   }
 }
