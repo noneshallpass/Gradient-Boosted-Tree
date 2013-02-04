@@ -9,7 +9,9 @@ abstract class PointIterator {
   def Reset(): Unit
 }
 
-class TreeGrower(val tree: Tree, val numFeatures: Int,
+class TreeGrower(val tree: Tree,
+    val numFeatures: Int,
+    val featureTypes: ArrayBuffer[FeatureType],
     val pointIterator: PointIterator) {
   
   def updateWithNewSplits: Unit = {
@@ -19,13 +21,13 @@ class TreeGrower(val tree: Tree, val numFeatures: Int,
   }
 
   def Grow() {
-    do {
+    while (!tree.isFull) {
       pointIterator.Reset()
       while (pointIterator.hasNext()) {
         val point = pointIterator.Next()
-        val child = tree.getChild(point.featureValues)
+        val child = tree.getChild(point.features)
       }
-    } while (!tree.isFull)
+    }
   }
   
   // **************************************************************************
@@ -38,7 +40,8 @@ class TreeGrower(val tree: Tree, val numFeatures: Int,
 }
 
 class Tree(var weight: Double, val maxNodes: Int) {    
-  // Return all of the leaves for the tree
+  // Return all of the leaves for the tree. In the event of an empty tree,
+  // the head node is returned, which is an instance of EmtpyNode.
   def getLeaves: ArrayBuffer[Node] = {
     val leaves = new ArrayBuffer[Node]
     def findLeaves(current: Node): Unit = {
@@ -48,15 +51,16 @@ class Tree(var weight: Double, val maxNodes: Int) {
         findLeaves(current.getRightChild)
       }
     }
+    if (leaves.isEmpty) leaves.append(head)
     findLeaves(head)
     leaves
   }
     
-  def getPrediction(features: FeatureList): Double = {
+  def getPrediction(features: ArrayBuffer[FeatureValue]): Double = {
     weight * head.getPrediction(features)
   }
   
-  def getChild(features: FeatureList): Node = head.getChild(features)
+  def getChild(features: ArrayBuffer[FeatureValue]): Node = head.getChild(features)
     
   def isFull: Boolean = nodeCount < maxNodes
   
@@ -72,7 +76,7 @@ class Tree(var weight: Double, val maxNodes: Int) {
 
 class Forest(val numNodes: Int) {
   
-  def getPrediction(features : FeatureList): Double = {
+  def getPrediction(features : ArrayBuffer[FeatureValue]): Double = {
     trees.map(x => x.getPrediction(features)).sum
   }
   
@@ -93,7 +97,7 @@ class Forest(val numNodes: Int) {
       leaves
     }
     
-    def getPrediction(features: FeatureList): Double = {
+    def getPrediction(features: ArrayBuffer[FeatureValue]): Double = {
       weight * node.getPrediction(features)
     }
     

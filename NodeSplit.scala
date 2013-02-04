@@ -94,7 +94,7 @@ class CategoricalNodeSplit(val node: Node,
     val featureIndex: Int) extends NodeSplit {
   // Accumulate statistics regarding a point of data.
   def process(point: Point): Unit = {
-    val featureValue = point.featureValues(featureIndex)
+    val featureValue = point.features(featureIndex)
     data(featureValue).accumulate(point.yValue)
   }
   
@@ -184,7 +184,7 @@ class OrderedNodeSplit(val node: Node,
     val featureIndex: Int) extends NodeSplit {
   def process(point: Point): Unit = {
     data += new FeatureValueAndData(
-        point.featureValues(featureIndex), 1, point.yValue)
+        point.features(featureIndex), 1, point.yValue)
   }
   
   def findBestSplit(): BestSplit = {

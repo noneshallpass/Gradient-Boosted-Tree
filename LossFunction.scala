@@ -8,7 +8,8 @@ abstract class LossFunction {
 	def getLoss(nodeStats: NodeStats): Double
 }
 
-class HuberLossFunction(val delta: Double) extends LossFunction {
+// TODO: should not be abstract
+abstract class HuberLossFunction(val delta: Double) extends LossFunction {
   def getLoss(nodeStats: NodeStats): Double
   
 }
