@@ -41,7 +41,7 @@ class TreeGrower(val tree: Tree,
 
 class Tree(var weight: Double, val maxNodes: Int) {    
   // Return all of the leaves for the tree. In the event of an empty tree,
-  // the head node is returned, which is an instance of EmtpyNode.
+  // the head node is returned, which is an instance of EmptyNode.
   def getLeaves: ArrayBuffer[Node] = {
     val leaves = new ArrayBuffer[Node]
     def findLeaves(current: Node): Unit = {
@@ -56,11 +56,11 @@ class Tree(var weight: Double, val maxNodes: Int) {
     leaves
   }
     
-  def getPrediction(features: ArrayBuffer[FeatureValue]): Double = {
+  def getPrediction(features: Array[FeatureValue]): Double = {
     weight * head.getPrediction(features)
   }
   
-  def getChild(features: ArrayBuffer[FeatureValue]): Node = head.getChild(features)
+  def getChild(features: Array[FeatureValue]): Node = head.getChild(features)
     
   def isFull: Boolean = nodeCount < maxNodes
   
@@ -76,7 +76,7 @@ class Tree(var weight: Double, val maxNodes: Int) {
 
 class Forest(val numNodes: Int) {
   
-  def getPrediction(features : ArrayBuffer[FeatureValue]): Double = {
+  def getPrediction(features : Array[FeatureValue]): Double = {
     trees.map(x => x.getPrediction(features)).sum
   }
   
@@ -97,7 +97,7 @@ class Forest(val numNodes: Int) {
       leaves
     }
     
-    def getPrediction(features: ArrayBuffer[FeatureValue]): Double = {
+    def getPrediction(features: Array[FeatureValue]): Double = {
       weight * node.getPrediction(features)
     }
     

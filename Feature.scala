@@ -36,6 +36,10 @@ class FeatureValue(val value: Any) extends Ordered[FeatureValue] {
   override def toString = value.toString
 }
 
+object FeatureValue {
+  def defaultValue: FeatureValue = new FeatureValue(0)
+}
+
 class FeatureType(val isOrderedFeature: Boolean, values: Set[FeatureValue]) {
   def isOrdered: Boolean = isOrderedFeature
   def isCategorical: Boolean = !isOrderedFeature
@@ -64,12 +68,12 @@ class FeatureType(val isOrderedFeature: Boolean, values: Set[FeatureValue]) {
 
 // A container for the different categorical values for a Feature.
 // This class requires that all FeatureValues must be of the same type, e.g. Int.
-class FeatureCategories(val features: ArrayBuffer[FeatureValue]) {
+class FeatureCategories(val features: Array[FeatureValue]) {
   private val values = features.toSet[FeatureValue]
   def contains(feature: FeatureValue): Boolean = values.contains(feature)
   def getCategories() = values
 }
 
-class Point(val features: ArrayBuffer[FeatureValue],
+class Point(val features: Array[FeatureValue],
     val yValue: Double) {
 }
