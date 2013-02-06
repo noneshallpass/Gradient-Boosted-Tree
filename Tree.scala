@@ -2,11 +2,12 @@ package gradientBoostedTree
 
 import scala.collection.mutable.ArrayBuffer;
 import scala.collection.mutable.HashMap
+import scala.collection.mutable.Map
 
 abstract class PointIterator {
   def hasNext(): Boolean
-  def Next(): Point
-  def Reset(): Unit
+  def next(): Point
+  def reset(): Unit
 }
 
 class TreeGrower(val tree: Tree,
@@ -14,18 +15,46 @@ class TreeGrower(val tree: Tree,
     val featureTypes: ArrayBuffer[FeatureType],
     val pointIterator: PointIterator) {
   
-  def updateWithNewSplits: Unit = {
+  def findNodesToInvestigate(): Map[Int, NodeSplit] = {
     val leaves: ArrayBuffer[Node] = tree.getLeaves
-    leaves.foreach(node =>
-      if (!splits.contains(node)) splits.put(node, new ArrayBuffer[NodeSplit]))
+    val nodesToInvestigate = new HashMap[Int, NodeSplit]
+    for (val node <- leaves) {
+      if (!bestSplitForNode.contains(node)) 
+        nodesToInvestigate.put(node.getId, new NodeSplit)
+    }
+    nodesToInvestigate
   }
 
-  def Grow() {
+  def createNodeSplits(nodeSplits: ArrayBuffer[NodeSplit]): Unit = {
+    for (index <- 0 until featureTypes.size) {
+      val featureType = featureTypes(index)
+      if (featureType.isOrdered) {
+        nodeSplits.append(new OrderedNodeSplit(index))
+      } else if (featureType.isCategorical) {
+        nodeSplits.append(new CategoricalNodeSplit(index))
+      }
+    }
+  }
+  
+  def Grow(): Unit = {
     while (!tree.isFull) {
-      pointIterator.Reset()
-      while (pointIterator.hasNext()) {
-        val point = pointIterator.Next()
-        val child = tree.getChild(point.features)
+      val nodesToInvestigate = findNodesToInvestigate()
+      if (!nodesToInvestigate.isEmpty) {
+        // For now training is in-memory
+    	pointIterator.reset()
+        while (pointIterator.hasNext()) {
+          val point = pointIterator.next()
+          val leaf = tree.getLeaf(point.features)
+          // TODO: check for null leaf
+          if (nodesToInvestigate.contains(leaf.getId)) {
+            val nodeSplits = nodesToInvestigate(leaf.getId)
+            if (nodeSplits.isEmpty) createNodeSplits(nodeSplits)
+            nodeSplits.foreach(nodeSplit => nodeSplit.process(point))
+          }
+        }
+    	while (!nodesToInvestigate.isEmpty) {
+    	  val nodeSplit: NodeSplit = nodesToInvestigate.remove(nodesToInvestigate.size - 1).get
+    	}
       }
     }
   }
@@ -36,7 +65,9 @@ class TreeGrower(val tree: Tree,
   //
   // **************************************************************************
   
-  private val splits = new HashMap[Node, ArrayBuffer[NodeSplit]]
+  // A map from a Node to the Best Split for the node. Each element of
+  // the array is a split based on a different feature.
+  private val bestSplitForNode = new HashMap[Node, BestSplit]
 }
 
 class Tree(var weight: Double, val maxNodes: Int) {    
@@ -45,7 +76,7 @@ class Tree(var weight: Double, val maxNodes: Int) {
   def getLeaves: ArrayBuffer[Node] = {
     val leaves = new ArrayBuffer[Node]
     def findLeaves(current: Node): Unit = {
-      if (current.isLeaf) leaves += current
+      if (current.isLeaf) leaves.append(current)
       else {
         findLeaves(current.getLeftChild)
         findLeaves(current.getRightChild)
@@ -60,7 +91,7 @@ class Tree(var weight: Double, val maxNodes: Int) {
     weight * head.getPrediction(features)
   }
   
-  def getChild(features: Array[FeatureValue]): Node = head.getChild(features)
+  def getLeaf(features: Array[FeatureValue]): Node = head.getLeaf(features)
     
   def isFull: Boolean = nodeCount < maxNodes
   

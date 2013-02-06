@@ -7,15 +7,28 @@ import scala.collection.mutable.Set
 
 // The best splitting of either an ordered or categorical node,
 // including the predictions for the left and right branches.
-class BestSplit(val splitFeatures: Set[FeatureValue],
+class BestSplit(
+    val featureIndex: Int,
+    val splitFeatures: Set[FeatureValue],
     val leftPrediction: Double,
-    val rightPrediction: Double) {
+    val rightPrediction: Double,
+    val error: Double) extends Ordered[BestSplit] {
+  override def compare(other: BestSplit): Int = this.compare(other)
 }
 
 // A class used to find the best split for a node.
 abstract class NodeSplit {
   def process(point: Point): Unit
-  def findBestSplit(): BestSplit
+  def findBestSplit(numFeatures: Int): BestSplit = {
+    var bestSplit: BestSplit = findBestSplitByIndex(0)
+    for (index <- 1 until numFeatures) {
+      val currentBestSplit = findBestSplitByIndex(index)
+      if (currentBestSplit < bestSplit) bestSplit = currentBestSplit
+    }
+    bestSplit
+  }
+  
+  def findBestSplitByIndex(featureIndex: Int): BestSplit
   
   // A helper class to contain the prediction index, and the prediction
   // values over the left and right regions along with the relative
@@ -80,6 +93,14 @@ class FeatureValueAndData(val featureValue: FeatureValue,
     new FeatureValueAndData(that.featureValue, featureCount + that.featureCount,
         yValSum + that.yValSum)
   }
+  
+  def accumulate(featureIndex: Int): (Point) => FeatureValueAndData = {
+    def accumulateHelper(featureIndex: Int)(that: Point) = {
+      new FeatureValueAndData(that.features(featureIndex), featureCount + 1,
+          yValSum + that.yValue)
+    }
+    accumulateHelper(featureIndex)
+  }
 }
 
 // Calculate the best split for a categorical node.
@@ -90,23 +111,31 @@ class FeatureValueAndData(val featureValue: FeatureValue,
 //
 // for (point <- allPoints) categoricalNodeSplit.process(point)
 // bestSplit = categoricalNodeSplit.findBestSplit()
-class CategoricalNodeSplit(val node: Node,
+class CategoricalNodeSplit(
     val featureIndex: Int) extends NodeSplit {
   // Accumulate statistics regarding a point of data.
   def process(point: Point): Unit = {
-    val featureValue = point.features(featureIndex)
-    data(featureValue).accumulate(point.yValue)
+    //val featureValue = point.features(featureIndex)
+    //data(featureValue).accumulate(point.yValue)
+    data.append(point)
   }
   
-  def findBestSplit(): BestSplit = {
+  def findBestSplitForIndex(featureIndex: Int): BestSplit = {
+    val featureAndDataMap = new HashMap[FeatureValue, FeatureValueData].
+      withDefaultValue(new FeatureValueData(0, 0))
+    for (point <- data) {
+      val featureValue = point.features(featureIndex)
+      featureAndDataMap(featureValue).accumulate(point.yValue)
+    }
+    
     // Convert to a sequence of (FeatureValue, (Count, y-value sum))
     // and sort by the average y-value.
     val combined_data = new ArrayBuffer[FeatureValueAndData]
-    for ((featureValue, featureValueData) <- data) { 
+    for ((featureValue, featureValueData) <- featureAndDataMap) { 
       combined_data += new FeatureValueAndData(featureValue,
           featureValueData.featureCount, featureValueData.yValSum)
     }
-    data.clear()
+    featureAndDataMap.clear()
     // TODO: replace with an in-place sort
     val accumulatedData = combined_data.sortBy({ x => x.yValSum / x.featureCount })
     combined_data.clear()
@@ -134,9 +163,11 @@ class CategoricalNodeSplit(val node: Node,
     for (index <- 1 until splitData.size) {
       splitFeatures += splitData(index).featureValue
     }
-    new BestSplit(splitFeatures,
-    		bestPredictionAndError.leftPrediction,
-    		bestPredictionAndError.rightPrediction)
+    new BestSplit(featureIndex,
+        splitFeatures,
+        bestPredictionAndError.leftPrediction,
+    	bestPredictionAndError.rightPrediction,
+    	bestPredictionAndError.relativeError)
   }
 
   // **************************************************************************
@@ -151,6 +182,7 @@ class CategoricalNodeSplit(val node: Node,
       new FeatureValueData(featureCount + that.featureCount,
         yValSum + that.yValSum)
     }
+    
     // Accumulate another y-value
     def accumulate(thatYVal: Double): Unit = {
       featureCount += 1
@@ -164,11 +196,12 @@ class CategoricalNodeSplit(val node: Node,
   //
   // **************************************************************************
   
+  private val data = new ArrayBuffer[Point]
   // A map from a FeatureValue/x-value (Double, Int, or String) to data 
   // representing (count, y-value sum). We will use Breiman's algorithm
   // for determining an optimal split by examining splits ordered by increasing
   // average y-value.
-  private val data = new HashMap[FeatureValue, FeatureValueData].
+  private val data2 = new HashMap[FeatureValue, FeatureValueData].
     withDefaultValue(new FeatureValueData(0, 0))
 }
 
@@ -178,19 +211,17 @@ class CategoricalNodeSplit(val node: Node,
 //                  evaluate.
 // Use this like:
 //
-// for (point <- allPoints) orederedNodeSplit.process(point)
+// for (point <- allPoints) orderedNodeSplit.process(point)
 // bestSplit = orderedNodeSplit.findBestSplit()
-class OrderedNodeSplit(val node: Node,
+class OrderedNodeSplit(
     val featureIndex: Int) extends NodeSplit {
   def process(point: Point): Unit = {
-    data += new FeatureValueAndData(
-        point.features(featureIndex), 1, point.yValue)
+    data.append(point)
   }
   
-  def findBestSplit(): BestSplit = {
+  def findBestSplitForIndex(featureIndex: Int): BestSplit = {
     // TODO: replace with an in-place sort
-    val sortedData = data.sortBy(_.featureValue)
-    data.clear()
+    val sortedData = data.sortBy(_.features(featureIndex))
     
     // The error is Sum (y_i - prediction)^2 over region R_i
     // The solution is prediction = average y_i over region R_i, with 
@@ -200,9 +231,10 @@ class OrderedNodeSplit(val node: Node,
     // The first element of accumulatedData is garbage. The real index starts
     // at 1.
     val accumulatedData = sortedData.scanLeft(
-        new FeatureValueAndData(sortedData(0).featureValue, 0, 0))(
-            _ accumulate _)
-    val predictionsAndRelError= for (index <- 1 until accumulatedData.size)
+        new FeatureValueAndData(sortedData(0).features(featureIndex), 0, 0))(
+            _.accumulate(featureIndex)(_))
+    sortedData.clear()
+    val predictionsAndRelError = for (index <- 1 until accumulatedData.size)
       yield PredictionAndRelativeError.compute(index, accumulatedData)
     val bestPredictionAndError = predictionsAndRelError.minBy(_.relativeError)
     // The 0 element is garbage.
@@ -210,9 +242,11 @@ class OrderedNodeSplit(val node: Node,
         accumulatedData.size - bestPredictionAndError.index - 1)
     val splitFeatures = new HashSet[FeatureValue]
     splitFeatures += accumulatedData(bestPredictionAndError.index).featureValue
-    new BestSplit(splitFeatures,
+    new BestSplit(featureIndex,
+        splitFeatures,
         bestPredictionAndError.leftPrediction,
-        bestPredictionAndError.rightPrediction)
+        bestPredictionAndError.rightPrediction,
+        bestPredictionAndError.relativeError)
   }
 
   // **************************************************************************
@@ -221,7 +255,7 @@ class OrderedNodeSplit(val node: Node,
   //
   // **************************************************************************
   
-  private val data = new ArrayBuffer[FeatureValueAndData]
+  private val data = new ArrayBuffer[Point]
   private class FeatureData(val featureValue: FeatureValue, val yValue: Double) {
   }
 }

@@ -41,9 +41,10 @@ object FeatureValue {
 }
 
 class FeatureType(val isOrderedFeature: Boolean, values: Set[FeatureValue]) {
+  def getCategoricalValues: Set[FeatureValue] = values
+  def getOrderedValue: FeatureValue = values.first
   def isOrdered: Boolean = isOrderedFeature
   def isCategorical: Boolean = !isOrderedFeature
-  def getCategoricalValues: Set[FeatureValue] = values
   
   // Validates the feature type. For categorical features, this ensures that
   // there is at least one value and that all values are of the same type.

@@ -3,7 +3,7 @@ package gradientBoostedTree
 //import scala.collection.mutable.ArrayBuffer
 
 abstract class Node {
-  def getChild(features : Array[FeatureValue]): Node
+  def getLeaf(features : Array[FeatureValue]): Node
   def getLeftChild: Node
   def getRightChild: Node
   def getId: Int = -1
@@ -17,14 +17,14 @@ abstract class Node {
 }
 
 class EmptyNode extends Node {
-  override def getChild(features : Array[FeatureValue]): Node = new EmptyNode
+  override def getLeaf(features : Array[FeatureValue]): Node = new EmptyNode
   override def getLeftChild: Node = new EmptyNode
   override def getRightChild: Node = new EmptyNode
   override def isEmptyNode: Boolean = true
 }
 
 abstract class DataNode extends Node {  
-  override def getChild(features: Array[FeatureValue]): Node
+  override def getLeaf(features: Array[FeatureValue]): Node
   override def getLeftChild: Node = left
   override def getRightChild: Node = right
   override def getId = id
@@ -37,7 +37,7 @@ abstract class DataNode extends Node {
       var pred = 0.0
       var child: Node = this
       do {
-        child = child.getChild(features)
+        child = child.getLeaf(features)
         pred = child.getNodePrediction
       }
       while (!child.isLeaf && !child.isEmptyNode)
@@ -72,7 +72,7 @@ class OrderedNode(val id: Int,
   // Return the child leaf node corresponding to the array of values.
   // All features are assumed present. If not enough features are provided
   // then return an EmptyNode.
-  override def getChild(features: Array[FeatureValue]): Node = {
+  override def getLeaf(features: Array[FeatureValue]): Node = {
     if (isLeaf) this
     else if (features.length <= featureIndex) new EmptyNode
     else if (features(featureIndex) < splitValue) left
@@ -101,7 +101,7 @@ class CategoricalNode(val id: Int,
   // Return the child leaf node corresponding to the array of values.
   // All features are assumed present. If not enough features are provided
   // then return an EmptyNode.
-  override def getChild(features: Array[FeatureValue]): Node = {
+  override def getLeaf(features: Array[FeatureValue]): Node = {
     if (isLeaf) this
     else if (features.length <= featureIndex) new EmptyNode
     else if (categories.contains(features(featureIndex))) left
