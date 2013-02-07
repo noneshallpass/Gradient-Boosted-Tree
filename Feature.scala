@@ -40,6 +40,11 @@ object FeatureValue {
   def defaultValue: FeatureValue = new FeatureValue(0)
 }
 
+// The type of a feature, either ordered or categorical.
+//
+// isOrdered: Indicates whether the feature is ordered or not (categorical).
+// values:    A set of permissible values for this feature. For ordered
+//            features, this serves mainly to indicate the data type.
 class FeatureType(val isOrderedFeature: Boolean, values: Set[FeatureValue]) {
   def getCategoricalValues: Set[FeatureValue] = values
   def getOrderedValue: FeatureValue = values.first
@@ -66,15 +71,7 @@ class FeatureType(val isOrderedFeature: Boolean, values: Set[FeatureValue]) {
   }
 }
 
-
-// A container for the different categorical values for a Feature.
-// This class requires that all FeatureValues must be of the same type, e.g. Int.
-class FeatureCategories(val features: Array[FeatureValue]) {
-  private val values = features.toSet[FeatureValue]
-  def contains(feature: FeatureValue): Boolean = values.contains(feature)
-  def getCategories() = values
-}
-
+// A class representing an atom of training data.
 class Point(val features: Array[FeatureValue],
     val yValue: Double) {
 }

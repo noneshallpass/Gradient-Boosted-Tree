@@ -1,5 +1,6 @@
-package gradientBoostedTree
+package gradientBoostedTree.tests
 
+import gradientBoostedTree._
 import org.scalatest.FunSuite
 import junit.framework.Assert._
 

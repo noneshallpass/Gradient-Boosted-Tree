@@ -1,7 +1,9 @@
-package gradientBoostedTree
+package gradientBoostedTree.tests
 
+import gradientBoostedTree._
 import org.scalatest.FunSuite
 import junit.framework.Assert._
+import scala.collection.mutable.ArrayBuffer
 
 class NodeTest extends FunSuite {
 
@@ -50,8 +52,8 @@ class NodeTest extends FunSuite {
   // leftRight: An array of feature vectors which descend to node 4.  
   def BuildAndCheckNode(
       makeNode: (Int, Int, Double) => Node,
-      node0Split: Array[FeatureValue],
-      node1Split: Array[FeatureValue],
+      node0Split: ArrayBuffer[FeatureValue],
+      node1Split: ArrayBuffer[FeatureValue],
       right: Array[Array[FeatureValue]],
       leftLeft: Array[Array[FeatureValue]],
       leftRight: Array[Array[FeatureValue]]): Unit = {
@@ -100,8 +102,8 @@ class NodeTest extends FunSuite {
     // Integer Ordered tree
     BuildAndCheckNode(
         makeNode(true),  // Ordered node
-        Array(new FeatureValue(10)),
-        Array(new FeatureValue(40)),
+        ArrayBuffer(new FeatureValue(10)),
+        ArrayBuffer(new FeatureValue(40)),
         Array(
             Array(new FeatureValue(15))),  // right
         Array(
@@ -114,8 +116,8 @@ class NodeTest extends FunSuite {
     // Double Ordered tree
     BuildAndCheckNode(
         makeNode(true),  // Ordered node
-        Array(new FeatureValue(10.0)),
-        Array(new FeatureValue(40.0)),
+        ArrayBuffer(new FeatureValue(10.0)),
+        ArrayBuffer(new FeatureValue(40.0)),
         Array(
             Array(new FeatureValue(15.0))),  // right
         Array(
@@ -128,8 +130,8 @@ class NodeTest extends FunSuite {
     // String Ordered tree
     BuildAndCheckNode(
         makeNode(true),  // Ordered node
-        Array(new FeatureValue("ab")),
-        Array(new FeatureValue("de")),
+        ArrayBuffer(new FeatureValue("ab")),
+        ArrayBuffer(new FeatureValue("de")),
         Array(
             Array(new FeatureValue("ac"))),  // right
         Array(
@@ -144,9 +146,9 @@ class NodeTest extends FunSuite {
     // Integer Category tree
     BuildAndCheckNode(
         makeNode(false),  // Categorical node
-        Array(new FeatureValue(1),
+        ArrayBuffer(new FeatureValue(1),
             new FeatureValue(2)),  // Node 0 split
-        Array(new FeatureValue(3),
+        ArrayBuffer(new FeatureValue(3),
             new FeatureValue(4)),  // Node 1 split
         Array(
             Array(new FeatureValue(3)),
@@ -163,9 +165,9 @@ class NodeTest extends FunSuite {
     // String Category tree
     BuildAndCheckNode(
         makeNode(false),  // Categorical node
-        Array(new FeatureValue("a"),
+        ArrayBuffer(new FeatureValue("a"),
             new FeatureValue("b")),  // Node 0 split
-        Array(new FeatureValue("c"),
+        ArrayBuffer(new FeatureValue("c"),
             new FeatureValue("d")),  // Node 1 split
         Array(
             Array(new FeatureValue("c")),

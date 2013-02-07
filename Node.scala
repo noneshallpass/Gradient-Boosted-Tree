@@ -1,17 +1,18 @@
 package gradientBoostedTree
 
-//import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.ArrayBuffer
 
 abstract class Node {
+  def getId: Int = -1
+  def getFeatureIndex = -1
   def getLeaf(features : Array[FeatureValue]): Node
   def getLeftChild: Node
   def getRightChild: Node
-  def getId: Int = -1
   def getNodePrediction: Double = 0.0
   def getPrediction(features : Array[FeatureValue]): Double = 0.0
   def insertChildren(leftChild: Node,
       rightChild: Node,
-      values: Array[FeatureValue]): Unit = {}
+      values: ArrayBuffer[FeatureValue]): Unit = {}
   def isEmptyNode: Boolean
   def isLeaf: Boolean = false
 }
@@ -24,10 +25,11 @@ class EmptyNode extends Node {
 }
 
 abstract class DataNode extends Node {  
+  override def getId = id
+  override def getFeatureIndex = featureIndex
   override def getLeaf(features: Array[FeatureValue]): Node
   override def getLeftChild: Node = left
   override def getRightChild: Node = right
-  override def getId = id
   override def getNodePrediction: Double = prediction
   // Given the array of feature values, find the prediction for the corresponding
   // leaf node.
@@ -82,7 +84,7 @@ class OrderedNode(val id: Int,
   // Insert both left and right children and set the splitting value.
   override def insertChildren(leftChild: Node,
       rightChild: Node,
-      values: Array[FeatureValue]): Unit = {
+      values: ArrayBuffer[FeatureValue]): Unit = {
     left = leftChild
     right = rightChild
     splitValue = values(0)
@@ -111,7 +113,7 @@ class CategoricalNode(val id: Int,
   // Insert both left and right children and set the splitting values.
   override def insertChildren(leftChild: Node,
       rightChild: Node,
-      values: Array[FeatureValue]): Unit = {
+      values: ArrayBuffer[FeatureValue]): Unit = {
     left = leftChild
     right = rightChild
     categories = values.toSet[FeatureValue]  
