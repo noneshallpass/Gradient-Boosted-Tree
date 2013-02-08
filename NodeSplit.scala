@@ -24,8 +24,9 @@ class NodeSplit(val featureIndex: Int, val featureTypes: Array[FeatureType]) {
     val featureType = featureTypes(featureIndex)
 	if (featureType.isOrdered) {
 	  new OrderedNodeSplit(featureIndex)
+    } else {
+      new CategoricalNodeSplit(featureIndex)
     }
-    new CategoricalNodeSplit(featureIndex)
   }
   
   def process(point: Point): Unit = {
@@ -91,17 +92,28 @@ abstract class NodeSplitBase {
   }
 }
 
+// A class to store the (Feature value, count, y-value sum).
 class FeatureValueAndData(val featureValue: FeatureValue,
     var featureCount: Int, var yValSum: Double) {
+  
   def +(that: FeatureValueAndData): FeatureValueAndData = {
     new FeatureValueAndData(that.featureValue, featureCount + that.featureCount,
         yValSum + that.yValSum)
   }
-  // Accumulate another y-value
-  def accumulate(thatYVal: Double): Unit = {
-    featureCount += 1
-    yValSum += thatYVal
+  
+  def canEqual(other: Any) = other.isInstanceOf[FeatureValueAndData]
+  
+  override def equals(other: Any) = other match {
+    case other: FeatureValueAndData =>
+      (other.canEqual(this)) &&
+      (featureValue == other.featureValue) &&
+      (featureCount == other.featureCount) &&
+      (yValSum == other.yValSum)
+    case _ => false
   }
+  
+  override def toString: String = "(%s, %d, %f)".format(
+      featureValue.toString(), featureCount, yValSum)
   
   def accumulate(that: FeatureValueAndData): FeatureValueAndData = {
     new FeatureValueAndData(that.featureValue, featureCount + that.featureCount,
@@ -117,6 +129,32 @@ class FeatureValueAndData(val featureValue: FeatureValue,
   }
 }
 
+// A class to store the (count, y-value sum) for each matching feature value.
+class FeatureValueData(var featureCount: Int, var yValSum: Double) {
+
+  def +(that: FeatureValueData): FeatureValueData = {
+    new FeatureValueData(featureCount + that.featureCount,
+        yValSum + that.yValSum)
+  }
+
+  // Accumulate another y-value
+  def accumulate(thatYVal: Double): FeatureValueData = {
+    new FeatureValueData(featureCount + 1, yValSum + thatYVal)
+  }
+ 
+  override def toString: String = "(%d, %f)".format(featureCount, yValSum)
+
+  def canEqual(other: Any) = other.isInstanceOf[FeatureValueData]
+
+  override def equals(other: Any) = other match {
+    case other: FeatureValueData =>
+      (other.canEqual(this)) &&
+      (featureCount == other.featureCount) &&
+      (yValSum == other.yValSum)
+    case _ => false
+  }
+}
+
 // Calculate the best split for a categorical node.
 // Ctor arguments:
 //    featureIndex: the index of the FeatureValue within a Point to
@@ -127,7 +165,7 @@ class FeatureValueAndData(val featureValue: FeatureValue,
 // bestSplit = categoricalNodeSplit.findBestSplit()
 class CategoricalNodeSplit(val featureIndex: Int) extends NodeSplitBase {
   // Accumulate statistics regarding a point of data.
-  def process(point: Point): Unit = {
+  override def process(point: Point): Unit = {
     //val featureValue = point.features(featureIndex)
     //data(featureValue).accumulate(point.yValue)
     data.append(point)
@@ -142,34 +180,30 @@ class CategoricalNodeSplit(val featureIndex: Int) extends NodeSplitBase {
       withDefaultValue(new FeatureValueData(0, 0))
     for (point <- data) {
       val featureValue = point.features(featureIndex)
-      featureAndDataMap(featureValue).accumulate(point.yValue)
+      featureAndDataMap.put(featureValue,
+          featureAndDataMap(featureValue).accumulate(point.yValue))
     }
-    
     // Convert to a sequence of (FeatureValue, (Count, y-value sum))
     // and sort by the average y-value.
-    val combined_data = new ArrayBuffer[FeatureValueAndData]
+    val combinedData = new ArrayBuffer[FeatureValueAndData]
     for ((featureValue, featureValueData) <- featureAndDataMap) { 
-      combined_data += new FeatureValueAndData(featureValue,
+      combinedData += new FeatureValueAndData(featureValue,
           featureValueData.featureCount, featureValueData.yValSum)
     }
     featureAndDataMap.clear()
     // TODO: replace with an in-place sort
-    val accumulatedData = combined_data.sortBy({ x => x.yValSum / x.featureCount })
-    combined_data.clear()
-    
+    val sortedData = combinedData.sortBy({ x => x.yValSum / x.featureCount })
+    combinedData.clear()
     // The error is Sum (y_i - prediction)^2 over region R_i
     // The solution is prediction = average y_i over region R_i, with 
     // error = Sum y_i ^2 - 2 * prediction * Sum y_i + N * prediction^2
     // where N is the number of points in region R_i. To determine the best
     // region split, we accumulate the individual components of sortedData.
-    //def accumulate(x: FeatureValueAndData, y: FeatureValueAndData) =
-    //  (y._1, x._2 + y._2)
     // The first element of accumulatedData is garbage. The real index starts
     // at 1.
-    //val accumulatedData = sortedData.toSeq.scanLeft(
-    //    (new FeatureValue(0), FeatureValueData.defaultValue))(accumulate)
-    accumulatedData.scanLeft(new FeatureValueAndData(
-        accumulatedData(0).featureValue, 0, 0))(_ accumulate _)
+    val accumulatedData = sortedData.scanLeft(new FeatureValueAndData(
+        sortedData(0).featureValue, 0, 0))(_ accumulate _)
+    sortedData.clear()
     val predictionsAndRelError= for (index <- 1 until accumulatedData.size)
       yield PredictionAndRelativeError.compute(index, accumulatedData)
     val bestPredictionAndError = predictionsAndRelError.minBy(_.relativeError)
@@ -193,20 +227,6 @@ class CategoricalNodeSplit(val featureIndex: Int) extends NodeSplitBase {
   //
   // **************************************************************************
   
-  // A class to store the (count, y-value sum) for each matching feature value.
-  protected class FeatureValueData(var featureCount: Int, var yValSum: Double) {
-    def +(that: FeatureValueData): FeatureValueData = {
-      new FeatureValueData(featureCount + that.featureCount,
-        yValSum + that.yValSum)
-    }
-    
-    // Accumulate another y-value
-    def accumulate(thatYVal: Double): Unit = {
-      featureCount += 1
-      yValSum += thatYVal
-    }
-  }
-  
   // **************************************************************************
   //
   // Private
@@ -225,7 +245,7 @@ class CategoricalNodeSplit(val featureIndex: Int) extends NodeSplitBase {
 // for (point <- allPoints) orderedNodeSplit.process(point)
 // bestSplit = orderedNodeSplit.findBestSplit()
 class OrderedNodeSplit(val featureIndex: Int) extends NodeSplitBase {
-  def process(point: Point): Unit = {
+  override def process(point: Point): Unit = {
     data.append(point)
   }
   
