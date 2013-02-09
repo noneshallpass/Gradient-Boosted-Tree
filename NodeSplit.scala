@@ -97,7 +97,8 @@ class FeatureValueAndData(val featureValue: FeatureValue,
     var featureCount: Int, var yValSum: Double) {
   
   def +(that: FeatureValueAndData): FeatureValueAndData = {
-    new FeatureValueAndData(that.featureValue, featureCount + that.featureCount,
+    new FeatureValueAndData(that.featureValue,
+        featureCount + that.featureCount,
         yValSum + that.yValSum)
   }
   
@@ -220,12 +221,6 @@ class CategoricalNodeSplit(val featureIndex: Int) extends NodeSplitBase {
     	bestPredictionAndError.rightPrediction,
     	bestPredictionAndError.relativeError)
   }
-
-  // **************************************************************************
-  //
-  // Protected
-  //
-  // **************************************************************************
   
   // **************************************************************************
   //

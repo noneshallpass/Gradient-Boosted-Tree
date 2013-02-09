@@ -12,7 +12,7 @@ import scala.collection.mutable.Map
 class Tree(var weight: Double, val maxNodes: Int) {
   
   // Return all of the leaves for the tree. In the event of an empty tree,
-  // the head node is returned, which is an instance of EmptyNode.
+  // the root node is returned, which is an instance of EmptyNode.
   def getLeaves: ArrayBuffer[Node] = {
     val leaves = new ArrayBuffer[Node]
     def findLeaves(current: Node): Unit = {
@@ -22,21 +22,23 @@ class Tree(var weight: Double, val maxNodes: Int) {
         findLeaves(current.getRightChild)
       }
     }
-    if (leaves.isEmpty) leaves.append(head)
-    findLeaves(head)
+    if (leaves.isEmpty) leaves.append(root)
+    findLeaves(root)
     leaves
   }
   
   // Return the weighted prediction for this tree.
   def getPrediction(features: Array[FeatureValue]): Double = {
-    weight * head.getPrediction(features)
+    weight * root.getPrediction(features)
   }
   
   // Return the leaf node corresponding to a vector of features.
-  def getLeaf(features: Array[FeatureValue]): Node = head.getLeaf(features)
+  def getLeaf(features: Array[FeatureValue]): Node = root.getLeaf(features)
     
   // Indicates whether the tree is fully grown or not.
   def isFull: Boolean = nodeCount < maxNodes
+  
+  def setRootNode(node: Node): Unit = root = node
   
   // **************************************************************************
   //
@@ -47,6 +49,6 @@ class Tree(var weight: Double, val maxNodes: Int) {
   // The number of nodes in the tree.
   private val nodeCount: Int = 0
   
-  // The head/root node for the tree.
-  private var head: Node = new EmptyNode
+  // The root node for the tree.
+  private var root: Node = EmptyNode.getEmptyNode
 }

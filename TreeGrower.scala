@@ -3,6 +3,7 @@ package gradientBoostedTree
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.mutable.HashMap
 import scala.collection.mutable.Map
+import scala.reflect.BeanProperty
 
 // A class for growing the number of nodes in a tree.
 //
@@ -25,7 +26,6 @@ class TreeGrower(val tree: Tree,
         while (pointIterator.hasNext()) {
           val point = pointIterator.next()
           val leaf = tree.getLeaf(point.features)
-          // TODO: check for null leaf and apply logic here.
           if (nodesToInvestigate.contains(leaf)) {
             val nodeSplit = nodesToInvestigate(leaf)
             nodeSplit.process(point)
@@ -34,7 +34,6 @@ class TreeGrower(val tree: Tree,
     	while (!nodesToInvestigate.isEmpty) {
     	  val (node, nodeSplit) = nodesToInvestigate.first
     	  bestSplitForNode.put(node, nodeSplit.findBestSplit())
-    	  // Free memory for the next split calculation
     	  nodesToInvestigate.remove(node)
     	}
       }
@@ -62,19 +61,29 @@ class TreeGrower(val tree: Tree,
     nodesToInvestigate
   }
   
-  // Return a function for creating Nodes of the appropriate type.
-  private def createNode(node: Node): (Int, Double) => Node = {
-    def createNodeHelper(node: Node)(featureIndex: Int, prediction: Double) = {
-      if (featureTypes(node.getFeatureIndex).isOrdered) {
-        nextId += 1
-        new OrderedNode(nextId, featureIndex, prediction)
-      } else {
-        nextId += 1
-        new CategoricalNode(nextId, featureIndex, prediction)
-      }
+  // All leaves are UnstructuredNodes. If and when, we grow the tree at
+  // a leaf, we need to change the node to an ordered or categorical node
+  // since we now know what feature we are using to split.
+  //
+  // node: The node to replace. By construction, it will be an Unstructured
+  //       Node.
+  // bestSplit: The data for splitting the node.
+  private def replaceNode(node: Node, bestSplit: BestSplit): Node = {
+    var newNode: Node = null
+    if (featureTypes(bestSplit.featureIndex).isOrdered) {
+      newNode = new OrderedNode(nextId,
+          bestSplit.featureIndex,
+          node.getNodePrediction)
+    } else {
+      newNode = new CategoricalNode(nextId,
+          bestSplit.featureIndex,
+          node.getNodePrediction)
     }
-    createNodeHelper(node)
-  }
+    nextId += 1
+    if (node.isEmptyNode) tree.setRootNode(newNode)
+    else node.replaceNode(newNode)
+    newNode
+  } 
   
   // Increase the size of the tree by two, by growing a left and
   // right child.
@@ -82,12 +91,10 @@ class TreeGrower(val tree: Tree,
   // node:      The leaf node at which to grow children.
   // bestSplit: Data about how to split the node.
   private def growTreeAtNode(node: Node, bestSplit: BestSplit): Unit = {
-    val nodeCreator = createNode(node)
-    val leftChild: Node =
-      nodeCreator(bestSplit.featureIndex, bestSplit.leftPrediction)
-    val rightChild: Node =
-      nodeCreator(bestSplit.featureIndex, bestSplit.leftPrediction)      
-    node.insertChildren(leftChild, rightChild, bestSplit.splitFeatures)
+    val parent = replaceNode(node, bestSplit)
+    val leftChild = new UnstructuredNode(bestSplit.leftPrediction, parent)
+    val rightChild = new UnstructuredNode(bestSplit.rightPrediction, parent)
+    parent.insertChildren(leftChild, rightChild, bestSplit.splitFeatures)
   }
   
   // A map from a Node to the Best Split for the node. Each element of
