@@ -17,24 +17,43 @@ class BestSplit(
 }
 
 // A class used to find the best split for a node.
-class NodeSplit(val featureIndex: Int, val featureTypes: Array[FeatureType]) {
-  val nodeSplit: NodeSplitBase = createNodeSplit()
+// TODO: Refactor so as not to double store data.
+class NodeSplit(val featureTypes: Array[FeatureType]) {
+  val orderedSplit: NodeSplitBase = createNodeSplit(true)
+  val categoricalSplit: NodeSplitBase = createNodeSplit(false)
   
-  def createNodeSplit(): NodeSplitBase = {
-    val featureType = featureTypes(featureIndex)
-	if (featureType.isOrdered) {
-	  new OrderedNodeSplit(featureIndex)
-    } else {
-      new CategoricalNodeSplit(featureIndex)
+  def createNodeSplit(createOrdered: Boolean): NodeSplitBase = {
+    for (featureIndex <- 0 until featureTypes.length) {
+      val featureType = featureTypes(featureIndex)
+      if (featureType.isOrdered && createOrdered) {
+        return new OrderedNodeSplit(featureIndex)
+      } else if (featureType.isCategorical && !createOrdered) {
+        return new CategoricalNodeSplit(featureIndex)
+      }
     }
+    null
   }
   
   def process(point: Point): Unit = {
-    nodeSplit.process(point)
+    if (orderedSplit != null) orderedSplit.process(point)
+    if (categoricalSplit != null) categoricalSplit.process(point)
   }
   
+  // Evaluate all splitting features for a node and select the one with
+  // the smallest error.
   def findBestSplit(): BestSplit = {
-    nodeSplit.findBestSplit()
+    var bestSplit: BestSplit = null
+    for (featureIndex <- 0 until featureTypes.length) {
+      val featureType = featureTypes(featureIndex)
+      var currentBestSplit: BestSplit = null
+      if (featureType.isOrdered) {
+        currentBestSplit = orderedSplit.findBestSplit()
+      } else currentBestSplit = categoricalSplit.findBestSplit()
+      if (bestSplit == null || currentBestSplit.error < bestSplit.error) {
+        bestSplit = currentBestSplit
+      }
+    }
+    bestSplit
   }
 }
 
@@ -67,21 +86,25 @@ abstract class NodeSplitBase {
       // The average y-value over the left partition.
       val leftPrediction = first.yValSum / first.featureCount
       // The average y-value over the right partition.
-      val rightPrediction = (last.yValSum - first.yValSum) /
-        (last.featureCount - first.featureCount)
-      // The Sum of y_i ^2 is constant amongst all errors calculations so it
-      // can be ignored. Define a function to calculate the 
+      var rightPrediction: Double = 0.0
+      // accumulatedData.length = #points + 1. To avoid a NaN for the rightPrediction,
+      // we must explicitly set it to 0 for a split of 1 point.
+      if (accumulatedData.length > 2) {
+        rightPrediction = (last.yValSum - first.yValSum) /
+          (last.featureCount - first.featureCount)
+      }
       def relativePartitionError(
           prediction: Double,
           first: FeatureValueAndData,
           last: FeatureValueAndData) = {
+        last.ySqValSum - first.ySqValSum +
         - 2 * prediction * (last.yValSum - first.yValSum) +
         (last.featureCount - first.featureCount) * prediction * prediction
       }
       // Sum the relative errors of the left and right partitions.
       val relativeError =
         relativePartitionError(leftPrediction,
-            new FeatureValueAndData(new FeatureValue(0), 0, 0),
+            new FeatureValueAndData(new FeatureValue(0), 0, 0, 0),
             first) +
       relativePartitionError(rightPrediction, first, last)
       new PredictionAndRelativeError(index,
@@ -92,14 +115,15 @@ abstract class NodeSplitBase {
   }
 }
 
-// A class to store the (Feature value, count, y-value sum).
+// A class to store the (Feature value, count, y-value sum, y^2-value sum).
 class FeatureValueAndData(val featureValue: FeatureValue,
-    var featureCount: Int, var yValSum: Double) {
+    val featureCount: Int, val yValSum: Double, val ySqValSum: Double) {
   
   def +(that: FeatureValueAndData): FeatureValueAndData = {
     new FeatureValueAndData(that.featureValue,
         featureCount + that.featureCount,
-        yValSum + that.yValSum)
+        yValSum + that.yValSum,
+        ySqValSum + that.ySqValSum)
   }
   
   def canEqual(other: Any) = other.isInstanceOf[FeatureValueAndData]
@@ -118,29 +142,34 @@ class FeatureValueAndData(val featureValue: FeatureValue,
   
   def accumulate(that: FeatureValueAndData): FeatureValueAndData = {
     new FeatureValueAndData(that.featureValue, featureCount + that.featureCount,
-        yValSum + that.yValSum)
+        yValSum + that.yValSum, ySqValSum + that.ySqValSum)
   }
   
   def accumulate(featureIndex: Int): (Point) => FeatureValueAndData = {
     def accumulateHelper(featureIndex: Int)(that: Point) = {
       new FeatureValueAndData(that.features(featureIndex), featureCount + 1,
-          yValSum + that.yValue)
+          yValSum + that.yValue, ySqValSum + that.yValue * that.yValue)
     }
     accumulateHelper(featureIndex)
   }
 }
 
-// A class to store the (count, y-value sum) for each matching feature value.
-class FeatureValueData(var featureCount: Int, var yValSum: Double) {
+// A class to store the (count, y-value sum, y^2-value sum) for each
+// matching feature value.
+class FeatureValueData(val featureCount: Int,
+    val yValSum: Double,
+    val ySqValSum: Double) {
 
   def +(that: FeatureValueData): FeatureValueData = {
     new FeatureValueData(featureCount + that.featureCount,
-        yValSum + that.yValSum)
+        yValSum + that.yValSum,
+        ySqValSum + that.ySqValSum)
   }
 
   // Accumulate another y-value
   def accumulate(thatYVal: Double): FeatureValueData = {
-    new FeatureValueData(featureCount + 1, yValSum + thatYVal)
+    new FeatureValueData(featureCount + 1, yValSum + thatYVal,
+        ySqValSum + thatYVal * thatYVal)
   }
  
   override def toString: String = "(%d, %f)".format(featureCount, yValSum)
@@ -167,8 +196,6 @@ class FeatureValueData(var featureCount: Int, var yValSum: Double) {
 class CategoricalNodeSplit(val featureIndex: Int) extends NodeSplitBase {
   // Accumulate statistics regarding a point of data.
   override def process(point: Point): Unit = {
-    //val featureValue = point.features(featureIndex)
-    //data(featureValue).accumulate(point.yValue)
     data.append(point)
   }
   
@@ -178,18 +205,19 @@ class CategoricalNodeSplit(val featureIndex: Int) extends NodeSplitBase {
     // for determining an optimal split by examining splits ordered by increasing
     // average y-value.
     val featureAndDataMap = new HashMap[FeatureValue, FeatureValueData].
-      withDefaultValue(new FeatureValueData(0, 0))
+      withDefaultValue(new FeatureValueData(0, 0, 0))
     for (point <- data) {
       val featureValue = point.features(featureIndex)
       featureAndDataMap.put(featureValue,
           featureAndDataMap(featureValue).accumulate(point.yValue))
     }
-    // Convert to a sequence of (FeatureValue, (Count, y-value sum))
-    // and sort by the average y-value.
+    // Convert to an ArrayBuffer of FeatureValueAndData.
     val combinedData = new ArrayBuffer[FeatureValueAndData]
     for ((featureValue, featureValueData) <- featureAndDataMap) { 
       combinedData += new FeatureValueAndData(featureValue,
-          featureValueData.featureCount, featureValueData.yValSum)
+          featureValueData.featureCount,
+          featureValueData.yValSum,
+          featureValueData.ySqValSum)
     }
     featureAndDataMap.clear()
     // TODO: replace with an in-place sort
@@ -203,7 +231,7 @@ class CategoricalNodeSplit(val featureIndex: Int) extends NodeSplitBase {
     // The first element of accumulatedData is garbage. The real index starts
     // at 1.
     val accumulatedData = sortedData.scanLeft(new FeatureValueAndData(
-        sortedData(0).featureValue, 0, 0))(_ accumulate _)
+        sortedData(0).featureValue, 0, 0, 0))(_ accumulate _)
     sortedData.clear()
     val predictionsAndRelError= for (index <- 1 until accumulatedData.size)
       yield PredictionAndRelativeError.compute(index, accumulatedData)
@@ -256,8 +284,9 @@ class OrderedNodeSplit(val featureIndex: Int) extends NodeSplitBase {
     // The first element of accumulatedData is garbage. The real index starts
     // at 1.
     val accumulatedData = sortedData.scanLeft(
-        new FeatureValueAndData(sortedData(0).features(featureIndex), 0, 0))(
-            _.accumulate(featureIndex)(_))
+        new FeatureValueAndData(
+            sortedData(0).features(featureIndex), 0, 0, 0))(
+                _.accumulate(featureIndex)(_))
     sortedData.clear()
     val predictionsAndRelError = for (index <- 1 until accumulatedData.size)
       yield PredictionAndRelativeError.compute(index, accumulatedData)

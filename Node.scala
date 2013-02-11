@@ -3,25 +3,6 @@ package gradientBoostedTree
 import scala.collection.mutable.ArrayBuffer
 import scala.reflect.BeanProperty
 
-/*abstract class Node {
-  def getId: Int = -1
-  def getFeatureIndex: Int = -1
-  def getLeaf(features : Array[FeatureValue]): Node
-  def getLeftChild: Node
-  def getRightChild: Node
-  def setLeftChild(node: Node): Unit = {}
-  def setRightChild(node: Node): Unit = {}
-  def getParent: Node = new EmptyNode
-  def getNodePrediction: Double = 0.0
-  def getPrediction(features : Array[FeatureValue]): Double = 0.0
-  def insertChildren(leftChild: Node,
-      rightChild: Node,
-      values: ArrayBuffer[FeatureValue]): Unit = {}
-  def isEmptyNode: Boolean
-  def isLeaf: Boolean = false
-  def replaceNode(newNode: Node): Unit = {}
-}*/
-
 class EmptyNode extends Node {
   override def getLeaf(features : Array[FeatureValue]): Node = this
   override def getLeftChild: Node = this
@@ -42,16 +23,11 @@ abstract class Node {
   // Given the array of feature values, find the prediction for the corresponding
   // leaf node.
   def getPrediction(features : Array[FeatureValue]): Double = {
-    if (isLeaf) getNodePrediction
+    if (isEmptyNode) 0.0
     else {
-      var pred = 0.0
-      var child: Node = this
-      do {
-        child = child.getLeaf(features)
-        pred = child.getNodePrediction
-      }
-      while (!child.isLeaf || !child.isEmptyNode)
-      pred
+      val leaf = getLeaf(features)
+      if (leaf.isEmptyNode) 0.0
+      else leaf.getNodePrediction
     }
   }
   
@@ -59,9 +35,12 @@ abstract class Node {
   
   def isLeaf = leftChild.isEmptyNode && rightChild.isEmptyNode
   
-  def insertChildren(leftChild: Node,
-      rightChild: Node,
-      values: ArrayBuffer[FeatureValue]): Unit = {}
+  def insertChildren(newLeftChild: Node,
+      newRightChild: Node,
+      values: ArrayBuffer[FeatureValue]): Unit = {
+    leftChild = newLeftChild
+    rightChild = newRightChild
+  }
   
   def replaceNode(newNode: Node): Unit = {}
   
@@ -85,7 +64,6 @@ abstract class Node {
 class OrderedNode(override val id: Int,
     override val featureIndex: Int,
     override val prediction: Double) extends Node {
-  var splitValue: FeatureValue = new FeatureValue(0)
 
   // Return the child leaf node corresponding to the array of values.
   // All features are assumed present. If not enough features are provided
@@ -93,8 +71,8 @@ class OrderedNode(override val id: Int,
   override def getLeaf(features: Array[FeatureValue]): Node = {
     if (isLeaf) this
     else if (features.length <= featureIndex) EmptyNode.getEmptyNode
-    else if (features(featureIndex) < splitValue) leftChild
-    else rightChild
+    else if (features(featureIndex) < splitValue) leftChild.getLeaf(features)
+    else rightChild.getLeaf(features)
   }
 
   // Insert both left and right children and set the splitting value.
@@ -105,6 +83,14 @@ class OrderedNode(override val id: Int,
     rightChild = newRightChild
     splitValue = values(0)
   }
+  
+  // **************************************************************************
+  //
+  // Private
+  //
+  // **************************************************************************
+  
+  private var splitValue: FeatureValue = new FeatureValue(0)
 }
 
 // A node for categorical data, e.g. for values in (1, 2, 3, 4)
@@ -114,7 +100,6 @@ class OrderedNode(override val id: Int,
 class CategoricalNode(override val id: Int,
     override val featureIndex: Int,
     override val prediction: Double) extends Node {
-  var categories: Set[FeatureValue] = null
   
   // Return the child leaf node corresponding to the array of values.
   // All features are assumed present. If not enough features are provided
@@ -122,8 +107,9 @@ class CategoricalNode(override val id: Int,
   override def getLeaf(features: Array[FeatureValue]): Node = {
     if (isLeaf) this
     else if (features.length <= featureIndex) EmptyNode.getEmptyNode
-    else if (categories.contains(features(featureIndex))) leftChild
-    else rightChild
+    else if (categories.contains(features(featureIndex))) {
+      leftChild.getLeaf(features)
+    } else rightChild.getLeaf(features)
   }
   
   // Insert both left and right children and set the splitting values.
@@ -134,6 +120,14 @@ class CategoricalNode(override val id: Int,
     rightChild = newRightChild
     categories = values.toSet[FeatureValue]  
   }
+  
+  // **************************************************************************
+  //
+  // Private
+  //
+  // **************************************************************************
+  
+  private var categories: Set[FeatureValue] = null
 }
 
 // A type of data node used for a leaf when growing a tree because
@@ -141,6 +135,9 @@ class CategoricalNode(override val id: Int,
 class UnstructuredNode(
     override val prediction: Double,
     val parent: Node) extends Node {
+  
+  // Unstructured nodes can only be leaves.
+  override def getLeaf(features: Array[FeatureValue]): Node = this
   
   override def replaceNode(newNode: Node): Unit = {
     if (this eq parent.getLeftChild) {

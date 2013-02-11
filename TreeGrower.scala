@@ -49,21 +49,24 @@ class TreeGrower(val tree: Tree,
   //
   // **************************************************************************
   
-  // Find nodes for which we have not yet determined a best split.
+  // Find nodes for which we have not yet determined a best split. If the tree
+  // is empty, a map with an EmptyNode as a key is returned.
   private def findNodesToInvestigate(): Map[Node, NodeSplit] = {
     val leaves: ArrayBuffer[Node] = tree.getLeaves
+    if (leaves.isEmpty) leaves.append(EmptyNode.getEmptyNode)
     val nodesToInvestigate = new HashMap[Node, NodeSplit]
     for (val node <- leaves) {
       if (!bestSplitForNode.contains(node))
-        nodesToInvestigate.put(node,
-            new NodeSplit(node.getFeatureIndex, featureTypes))
+        nodesToInvestigate.put(node, new NodeSplit(featureTypes))
     }
     nodesToInvestigate
   }
   
   // All leaves are UnstructuredNodes. If and when, we grow the tree at
   // a leaf, we need to change the node to an ordered or categorical node
-  // since we now know what feature we are using to split.
+  // since we now know what feature we are using to split. If node is
+  // an instance of EmptyNode, the tree is empty so we grow the tree at the
+  // root.
   //
   // node: The node to replace. By construction, it will be an Unstructured
   //       Node.
@@ -94,7 +97,7 @@ class TreeGrower(val tree: Tree,
     val parent = replaceNode(node, bestSplit)
     val leftChild = new UnstructuredNode(bestSplit.leftPrediction, parent)
     val rightChild = new UnstructuredNode(bestSplit.rightPrediction, parent)
-    parent.insertChildren(leftChild, rightChild, bestSplit.splitFeatures)
+    tree.insertChildren(parent, leftChild, rightChild, bestSplit.splitFeatures)
   }
   
   // A map from a Node to the Best Split for the node. Each element of

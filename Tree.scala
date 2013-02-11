@@ -11,18 +11,27 @@ import scala.collection.mutable.Map
 // maxNodes: The maximum number of nodes for this tree.
 class Tree(var weight: Double, val maxNodes: Int) {
   
+  def insertChildren(parent: Node,
+      leftChild: Node,
+      rightChild: Node,
+      values: ArrayBuffer[FeatureValue]): Unit = {
+    parent.insertChildren(leftChild, rightChild, values)
+    nodeCount += 2
+  }
+  
   // Return all of the leaves for the tree. In the event of an empty tree,
-  // the root node is returned, which is an instance of EmptyNode.
+  // an empty ArrayBuffer is returned.
   def getLeaves: ArrayBuffer[Node] = {
     val leaves = new ArrayBuffer[Node]
     def findLeaves(current: Node): Unit = {
-      if (current.isLeaf) leaves.append(current)
-      else {
-        findLeaves(current.getLeftChild)
-        findLeaves(current.getRightChild)
+      if (!current.isEmptyNode) {
+        if (current.isLeaf) leaves.append(current)
+        else {
+          findLeaves(current.getLeftChild)
+          findLeaves(current.getRightChild)
+        }
       }
     }
-    if (leaves.isEmpty) leaves.append(root)
     findLeaves(root)
     leaves
   }
@@ -36,9 +45,12 @@ class Tree(var weight: Double, val maxNodes: Int) {
   def getLeaf(features: Array[FeatureValue]): Node = root.getLeaf(features)
     
   // Indicates whether the tree is fully grown or not.
-  def isFull: Boolean = nodeCount < maxNodes
+  def isFull: Boolean = nodeCount >= maxNodes
   
-  def setRootNode(node: Node): Unit = root = node
+  def setRootNode(node: Node): Unit = {
+    root = node
+    nodeCount += 1
+  }
   
   // **************************************************************************
   //
@@ -47,7 +59,7 @@ class Tree(var weight: Double, val maxNodes: Int) {
   // **************************************************************************
   
   // The number of nodes in the tree.
-  private val nodeCount: Int = 0
+  private var nodeCount: Int = 0
   
   // The root node for the tree.
   private var root: Node = EmptyNode.getEmptyNode

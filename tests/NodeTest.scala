@@ -70,27 +70,27 @@ class NodeTest extends FunSuite {
     assert(headRight.getId === head.getRightChild.getId)
     assert(headLeftLeft.getId === head.getLeftChild.getLeftChild.getId)
     assert(headLeftRight.getId === head.getLeftChild.getRightChild.getId)
-    
+
     // Check isLeaf
     assertFalse(head.isLeaf)
     assertFalse(head.getLeftChild.isLeaf)
     assert(head.getRightChild.isLeaf)    
     assert(head.getLeftChild.getLeftChild.isLeaf) 
     assert(head.getLeftChild.getRightChild.isLeaf)
-    
+
     // Check isEmptyNode
     assertFalse(head.isEmptyNode)
     assertFalse(head.getLeftChild.isEmptyNode)
     assertFalse(head.getRightChild.isEmptyNode)    
     assertFalse(head.getLeftChild.getLeftChild.isEmptyNode) 
     assertFalse(head.getLeftChild.getRightChild.isEmptyNode)   
-    
+
     // Node 2
     for (r <- right) assertEquals(2.5, head.getPrediction(r))
-        
+      
     // Node 3
     for (ll <- leftLeft) assertEquals(3.5, head.getPrediction(ll))
-            
+     
     // Node 4
     for (lr <- leftRight) assertEquals(4.5, head.getPrediction(lr))
     
@@ -112,7 +112,7 @@ class NodeTest extends FunSuite {
         Array(
             Array(new FeatureValue(5),
                 new FeatureValue(45))))   // leftRight
-            
+    println("YO YO YO")       
     // Double Ordered tree
     BuildAndCheckNode(
         makeNode(true),  // Ordered node
