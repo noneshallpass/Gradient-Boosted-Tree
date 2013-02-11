@@ -112,7 +112,7 @@ class NodeTest extends FunSuite {
         Array(
             Array(new FeatureValue(5),
                 new FeatureValue(45))))   // leftRight
-    println("YO YO YO")       
+      
     // Double Ordered tree
     BuildAndCheckNode(
         makeNode(true),  // Ordered node
