@@ -9,15 +9,23 @@ import scala.collection.mutable.Map
 //
 // weight:   The weight to associate with this tree in prediction.
 // maxNodes: The maximum number of nodes for this tree.
+//
+// TODO: consider implementing tree pruning.
 class Tree(var weight: Double, val maxNodes: Int) {
   
-  def insertChildren(parent: Node,
-      leftChild: Node,
-      rightChild: Node,
-      values: ArrayBuffer[FeatureValue]): Unit = {
-    parent.insertChildren(leftChild, rightChild, values)
-    nodeCount += 2
+  // Return the weighted prediction for this tree.
+  def getPrediction(features: Array[FeatureValue]): Double = {
+    weight * root.getPrediction(features)
   }
+
+  // **************************************************************************
+  //
+  // Functions for growing the tree.
+  //
+  // **************************************************************************
+  
+  // Return the leaf node corresponding to a vector of features.
+  def getLeaf(features: Array[FeatureValue]): Node = root.getLeaf(features)
   
   // Return all of the leaves for the tree. In the event of an empty tree,
   // an empty ArrayBuffer is returned.
@@ -35,15 +43,15 @@ class Tree(var weight: Double, val maxNodes: Int) {
     findLeaves(root)
     leaves
   }
-  
-  // Return the weighted prediction for this tree.
-  def getPrediction(features: Array[FeatureValue]): Double = {
-    weight * root.getPrediction(features)
+
+  def insertChildren(parent: Node,
+      leftChild: Node,
+      rightChild: Node,
+      values: ArrayBuffer[FeatureValue]): Unit = {
+    parent.insertChildren(leftChild, rightChild, values)
+    nodeCount += 2
   }
   
-  // Return the leaf node corresponding to a vector of features.
-  def getLeaf(features: Array[FeatureValue]): Node = root.getLeaf(features)
-    
   // Indicates whether the tree is fully grown or not.
   def isFull: Boolean = nodeCount >= maxNodes
   

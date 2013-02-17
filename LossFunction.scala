@@ -1,16 +1,55 @@
 package gradientBoostedTree
 
-// TODO: fill this in.
-class NodeStats {
-  
-}
+import scala.Math
+
 
 abstract class LossFunction {
-	def getLoss(nodeStats: NodeStats): Double
+  
+  // Get the loss where residual = actual - predicted.
+  def getLoss(residual: Double): Double
+
+  // Get the negative derivative of the loss at the
+  // residual where residual = actual - predicted.
+  def getNegDerivative(residual: Double): Double
 }
 
-// TODO: should not be abstract
-abstract class HuberLossFunction(val delta: Double) extends LossFunction {
-  def getLoss(nodeStats: NodeStats): Double
+
+class SquaredLoss extends LossFunction {
   
+	def getLoss(residual: Double) = residual * residual / 2.0
+	
+	def getNegDerivative(residual: Double) = residual
+}
+
+
+class AbsoluteLoss extends LossFunction {
+  
+  override def getLoss(residual: Double) = math.abs(residual)
+    
+  override def getNegDerivative(residual: Double) = Math.signum(residual)
+}
+
+// TODO: Build a delta auto-tune so that we can set it to the alpha-quantile
+// across all data.
+class HuberLoss(val delta: Double) extends LossFunction {
+  
+  override def getLoss(residual: Double) = {
+    val absResidual = math.abs(residual)
+    if (absResidual <= delta) residual * residual / 2.0
+    else delta * (absResidual - deltaHalf)
+  }
+  
+  override def getNegDerivative(residual: Double) = {
+    val absResidual = math.abs(residual)
+    if (absResidual <= delta) residual
+    else delta * math.signum(residual)
+  }
+  
+  // **************************************************************************
+  //
+  // Private
+  //
+  // **************************************************************************
+  
+  private val deltaHalf: Double = delta / 2.0
 }
