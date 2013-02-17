@@ -47,10 +47,18 @@ class Tree(var weight: Double, val maxNodes: Int) {
   // Indicates whether the tree is fully grown or not.
   def isFull: Boolean = nodeCount >= maxNodes
   
+  // Replace the root node. Do not increment the node count
+  def replaceRootNode(node: Node): Unit = root = node
+  
+  // Set the root node. Increment the node count.
   def setRootNode(node: Node): Unit = {
     root = node
     nodeCount += 1
   }
+  
+  def size: Int = nodeCount
+  
+  override def toString: String  = root.toString
   
   // **************************************************************************
   //

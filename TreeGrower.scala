@@ -17,8 +17,10 @@ class TreeGrower(val tree: Tree,
   
   // Grow the tree until it has a sufficient number of nodes.
   def Grow(): Unit = {
+    setRootNodeIfNecessary(pointIterator)
     val bestSplitForNode = new HashMap[Node, BestSplit]
-    while (!tree.isFull) {
+    var done = false
+    while (!tree.isFull && !done) {
       val nodesToInvestigate = findNodesToInvestigate()
       if (!nodesToInvestigate.isEmpty) {
         // For now training is in-memory
@@ -37,9 +39,15 @@ class TreeGrower(val tree: Tree,
     	  nodesToInvestigate.remove(node)
     	}
       }
-      val (node, bestSplit) = bestSplitForNode.minBy(_._2)
-      growTreeAtNode(node, bestSplit)
-      bestSplitForNode.remove(node)
+      if (bestSplitForNode.isEmpty) done = true
+      else {
+        val (node, bestSplit) = bestSplitForNode.minBy(_._2)
+        if (bestSplit.isNotASolution) done = true
+        else {
+          growTreeAtNode(node, bestSplit)
+          bestSplitForNode.remove(node)
+        }
+      }
     }
   }
   
@@ -49,6 +57,25 @@ class TreeGrower(val tree: Tree,
   //
   // **************************************************************************
   
+  private def setRootNodeIfNecessary(pointIterator: PointIterator): Unit = {
+    if (tree.size == 0) {
+      var yValSum: Double = 0
+      var numPoints: Int = 0
+      pointIterator.reset()
+      while (pointIterator.hasNext()) {
+        yValSum += pointIterator.next().yValue
+        numPoints += 1
+      }
+      val average = if (numPoints > 0) yValSum / numPoints else 0.0
+      tree.setRootNode(new UnstructuredNode(average, EmptyNode.getEmptyNode,
+          Double.PositiveInfinity))
+    }
+  }
+  
+  // Nodes which have sufficiently a sufficiently small prediction error should
+  // be ignored in growing the tree.
+  private def shouldIgnoreNode(node: Node): Boolean = node.getError == 0.0
+  
   // Find nodes for which we have not yet determined a best split. If the tree
   // is empty, a map with an EmptyNode as a key is returned.
   private def findNodesToInvestigate(): Map[Node, NodeSplit] = {
@@ -56,7 +83,7 @@ class TreeGrower(val tree: Tree,
     if (leaves.isEmpty) leaves.append(EmptyNode.getEmptyNode)
     val nodesToInvestigate = new HashMap[Node, NodeSplit]
     for (val node <- leaves) {
-      if (!bestSplitForNode.contains(node))
+      if (!bestSplitForNode.contains(node) && !shouldIgnoreNode(node))
         nodesToInvestigate.put(node, new NodeSplit(featureTypes))
     }
     nodesToInvestigate
@@ -73,18 +100,25 @@ class TreeGrower(val tree: Tree,
   // bestSplit: The data for splitting the node.
   private def replaceNode(node: Node, bestSplit: BestSplit): Node = {
     var newNode: Node = null
-    if (featureTypes(bestSplit.featureIndex).isOrdered) {
-      newNode = new OrderedNode(nextId,
-          bestSplit.featureIndex,
-          node.getNodePrediction)
+    if (node.isEmptyNode) {
+      newNode = new UnstructuredNode(bestSplit.leftPrediction, node,
+          bestSplit.error)
+      tree.setRootNode(newNode)
     } else {
-      newNode = new CategoricalNode(nextId,
-          bestSplit.featureIndex,
-          node.getNodePrediction)
+      if (featureTypes(bestSplit.featureIndex).isOrdered) {
+        newNode = new OrderedNode(nextId,
+            bestSplit.featureIndex,
+            node.getNodePrediction)
+      } else {
+        newNode = new CategoricalNode(nextId,
+            bestSplit.featureIndex,
+            node.getNodePrediction)
+      }
+      nextId += 1
+      if (tree.size == 1) tree.replaceRootNode(newNode)
+      else node.replaceNode(newNode)
+      newNode
     }
-    nextId += 1
-    if (node.isEmptyNode) tree.setRootNode(newNode)
-    else node.replaceNode(newNode)
     newNode
   } 
   
@@ -95,9 +129,14 @@ class TreeGrower(val tree: Tree,
   // bestSplit: Data about how to split the node.
   private def growTreeAtNode(node: Node, bestSplit: BestSplit): Unit = {
     val parent = replaceNode(node, bestSplit)
-    val leftChild = new UnstructuredNode(bestSplit.leftPrediction, parent)
-    val rightChild = new UnstructuredNode(bestSplit.rightPrediction, parent)
-    tree.insertChildren(parent, leftChild, rightChild, bestSplit.splitFeatures)
+    // If node is an EmptyNode, we have no children to insert.
+    if (!node.isEmptyNode) {
+      val leftChild = new UnstructuredNode(bestSplit.leftPrediction, parent,
+          bestSplit.leftError)
+      val rightChild = new UnstructuredNode(bestSplit.rightPrediction, parent,
+          bestSplit.rightError)
+      tree.insertChildren(parent, leftChild, rightChild, bestSplit.splitFeatures)
+    }
   }
   
   // A map from a Node to the Best Split for the node. Each element of

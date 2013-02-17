@@ -70,13 +70,15 @@ class NodeSplitTest extends FunSuite {
         actualBestSplit.leftPrediction)
     assertEquals(expectedBestSplit.rightPrediction,
         actualBestSplit.rightPrediction)
-    assertEquals(expectedBestSplit.error, actualBestSplit.error)
+    assertEquals(expectedBestSplit.leftError, actualBestSplit.leftError)
+    assertEquals(expectedBestSplit.rightError, actualBestSplit.rightError)
+    assertEquals(expectedBestSplit.leftCount, actualBestSplit.leftCount)
+    assertEquals(expectedBestSplit.rightCount, actualBestSplit.rightCount)
   }
 
   test("Ordered Node Split 1") {
     val featuresType = Array(new FeatureType(true, Set(new FeatureValue(0))))
     val nodeSplit = new NodeSplit(featuresType)
-    // assert(nodeSplit.nodeSplit.isInstanceOf[OrderedNodeSplit])
     val points = Array(
         makePoint(5, 1),
         makePoint(1, -1),
@@ -89,14 +91,13 @@ class NodeSplitTest extends FunSuite {
     val bestSplit = nodeSplit.findBestSplit()
     val expectedBestSplit = new BestSplit(0,
         new ArrayBuffer[FeatureValue] += new FeatureValue(3),
-        -1.0, -0.25, 2.75)
+        -1.0, -0.25, 0.0, 2.75, 2, 4)
     checkBestSplit(expectedBestSplit, bestSplit)
   }
   
   test("Ordered Node Split 2") {
     val featuresType = Array(new FeatureType(true, Set(new FeatureValue(0))))
     val nodeSplit = new NodeSplit(featuresType)
-    // assert(nodeSplit.nodeSplit.isInstanceOf[OrderedNodeSplit])
     val points = Array(
         makePoint(1, 1),
         makePoint(3, 5),
@@ -107,7 +108,7 @@ class NodeSplitTest extends FunSuite {
     val bestSplit = nodeSplit.findBestSplit()
     val expectedBestSplit = new BestSplit(0,
         new ArrayBuffer[FeatureValue] += new FeatureValue(3),
-        3.0, 9.0, 16.0)
+        3.0, 9.0, 8.0, 8.0, 2, 3)
     checkBestSplit(expectedBestSplit, bestSplit)
   }
 
@@ -128,23 +129,91 @@ class NodeSplitTest extends FunSuite {
     val expectedBestSplit = new BestSplit(0,
         new ArrayBuffer[FeatureValue] += new FeatureValue(1) +=
           new FeatureValue(3),
-        3.0, 9.0, 16.0)
+        3.0, 9.0, 8.0, 8.0, 2, 3)
     checkBestSplit(expectedBestSplit, bestSplit)
   }
   
-  test("Split of 1 Point") {
+  test("Split of 1 Point - No Solution") {
     val featuresType = Array(new FeatureType(true, Set(new FeatureValue(0))))
     val nodeSplit = new NodeSplit(featuresType)
-    // assert(nodeSplit.nodeSplit.isInstanceOf[OrderedNodeSplit])
     val points = Array(
         makePoint(5, 1)
         )
     for (point <- points) nodeSplit.process(point)
     val bestSplit = nodeSplit.findBestSplit()
+    checkBestSplit(BestSplit.noSolution, bestSplit)
+  }
+  
+  test("Split of 2 points - No Error") {
+    val featuresType = Array(new FeatureType(true, Set(new FeatureValue(0))))
+    val nodeSplit = new NodeSplit(featuresType)
+    val points = Array(
+        makePoint(1, 1),
+        makePoint(3, 5))
+    for (point <- points) nodeSplit.process(point)
+    val bestSplit = nodeSplit.findBestSplit()
     val expectedBestSplit = new BestSplit(0,
-        new ArrayBuffer[FeatureValue] += new FeatureValue(5),
-        1, 0, 0)
+        new ArrayBuffer[FeatureValue] += new FeatureValue(1),
+        1.0, 5.0, 0, 0, 1, 1)
     checkBestSplit(expectedBestSplit, bestSplit)
+  }
+
+  test("Split of 3 points - Error 1 side") {
+    val featuresType = Array(new FeatureType(true, Set(new FeatureValue(0))))
+    val nodeSplit = new NodeSplit(featuresType)
+    val points = Array(
+        makePoint(3, 5),
+        makePoint(2, 4),
+        makePoint(1, 1))
+    for (point <- points) nodeSplit.process(point)
+    val bestSplit = nodeSplit.findBestSplit()
+    val expectedBestSplit = new BestSplit(0,
+        new ArrayBuffer[FeatureValue] += new FeatureValue(1),
+        1.0, 4.5, 0, 0.5, 1, 2)
+    checkBestSplit(expectedBestSplit, bestSplit)
+  }
+  
+  class NodeError extends NodeSplitBase {
+    override def findBestSplit(featureIndex: Int,
+        data: ArrayBuffer[Point]): BestSplit = null
+    
+    def makeFVD(featureValue: Int, featureCount: Int,
+        yValSum: Double, ySqValSum: Double): FeatureValueAndData = {
+      new FeatureValueAndData(new FeatureValue(featureValue), featureCount,
+          yValSum, ySqValSum)
+    }
+    
+    def makePAE(index: Int, leftError: Double,
+        rightError: Double): PredictionAndError = {
+      new PredictionAndError(index, 0, 0, leftError, rightError)
+    }
+    
+    val accumulatedData = ArrayBuffer(
+        makeFVD(0, 0, 0, 0),
+        makeFVD(1, 0, 0, 0),
+        makeFVD(2, 0, 0, 0),
+        makeFVD(2, 0, 0, 0),
+        makeFVD(2, 0, 0, 0),
+        makeFVD(3, 0, 0, 0),
+        makeFVD(4, 0, 0, 0))
+        
+    val predictionAndError = Array(
+        makePAE(1, 1, 1),
+        makePAE(2, 0, 0.2),
+        makePAE(2, 0, 0),
+        makePAE(2, 0.2, 0),
+        makePAE(3, 0.5, 0.5),
+        makePAE(4, 0.5, 0.5)
+        )
+    
+    def getMinError = minError(accumulatedData, predictionAndError.toIndexedSeq)
+  }
+  
+  test("Min Error") {
+    val nodeError = new NodeError
+    val predictionAndError = nodeError.getMinError
+    assertEquals(0.2, predictionAndError.leftError)
+    assertEquals(0.0, predictionAndError.rightError)    
   }
   
 }

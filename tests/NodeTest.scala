@@ -185,8 +185,8 @@ class NodeTest extends FunSuite {
   test("Unstructured Node") {
     val nodeMaker = makeNode(true)
     val head = nodeMaker(0, 0, 0.5)
-    val headLeft = new UnstructuredNode(1.5, head)
-    val headRight = new UnstructuredNode(2.5, head)
+    val headLeft = new UnstructuredNode(1.5, head, 0)
+    val headRight = new UnstructuredNode(2.5, head, 0)
     head.insertChildren(headLeft, headRight, ArrayBuffer(new FeatureValue(10)))
     val newLeftNode = nodeMaker(3, 1, 3.5)
     val newRightNode = nodeMaker(4, 1, 4.5)

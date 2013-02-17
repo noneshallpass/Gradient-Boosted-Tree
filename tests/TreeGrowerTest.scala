@@ -4,17 +4,25 @@ import gradientBoostedTree._
 import junit.framework.Assert._
 import org.scalatest.FunSuite
 import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.HashSet
+import scala.collection.immutable.Set
 
 class TreeGrowerTest extends FunSuite {
 
+  // A helper function for creating a point with an arbitrary number of
+  // feature / x-values. Use like this:
+  // 
+  // val point: Point = makePoint(3, 0, 1, 2)
+  // val point2: Point = makePoint(4, 0, 1)
   def makePoint(y: Double, x: Int*): Point = {
     val xvals = new Array[FeatureValue](x.length)
     for (i <- 0 until x.length) xvals(i) = new FeatureValue(x(i))
     new Point(xvals, y)
   }
   
+  // A PointIterator for test tree data.
   class TestPointIteratorDim3(val length: Int) extends PointIterator {
-    override def hasNext() = nextIndex < length
+    override def hasNext() = nextIndex < Math.min(length, points.length)
    
     override def next(): Point = {
       val point = points(nextIndex)
@@ -34,22 +42,38 @@ class TreeGrowerTest extends FunSuite {
         makePoint(4, 1, 5, 3),
         makePoint(2, 1, 3, 2)
         )
+
     private var nextIndex: Int = 0
   }
   
-  test("Grow Tree 1 Node 1 Node Max") {
-    val tree = new Tree(1, 1)
+  // A test for grow a tree so that it has one point per node. This means
+  // that we grow a tree to perfectly fit the data. Train on a subset of
+  // the TestPointIteratorDim3 data as specified by numPoints.
+  def testGrowTreeOnePointPerNode(numPoints: Int, isOrdered: Boolean): Unit = {
+    val tree = new Tree(1, 100)
     val featureTypes = Array(
-        new FeatureType(false, Set()),
-        new FeatureType(false, Set()),
-        new FeatureType(false, Set())
+        new FeatureType(isOrdered, Set()),
+        new FeatureType(isOrdered, Set()),
+        new FeatureType(isOrdered, Set())
     )
     val pointIterator = new TestPointIteratorDim3(1)
     val treeGrower = new TreeGrower(tree, featureTypes,
-        new TestPointIteratorDim3(1))
+        new TestPointIteratorDim3(numPoints))
     treeGrower.Grow()
     pointIterator.reset()
-    assert(1 === tree.getPrediction(pointIterator.next().features))
+    // Check that the tree has no training error over the data.
+    while (pointIterator.hasNext()) {
+      val point: Point = pointIterator.next()
+      assert(point.yValue === tree.getPrediction(point.features))
+    }   
   }
-  
+
+  test("Grow Tree - One Point Per Node") {
+    for (i <- 1 to 8) {
+      // All ordered nodes.
+      testGrowTreeOnePointPerNode(i, true)
+      // All categorical nodes.
+      testGrowTreeOnePointPerNode(i, false)      
+    }
+  }
 }

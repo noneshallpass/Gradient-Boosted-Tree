@@ -74,4 +74,8 @@ class FeatureType(val isOrderedFeature: Boolean, values: Set[FeatureValue]) {
 // A class representing an atom of training data.
 class Point(val features: Array[FeatureValue],
     val yValue: Double) {
+  
+  override def toString: String = "(%s, %f)".format(
+      features.foldLeft("")((k,v) => "%s, %s".format(k, v.toString)),
+      yValue)
 }
