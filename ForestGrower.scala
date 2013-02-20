@@ -1,5 +1,7 @@
 package gradientBoostedTree
 
+import scala.collection.mutable.HashMap
+
 // A class for growing a forest of trees based on gradient boosting.
 //
 // maxTrees:        The number of trees to train.
@@ -26,8 +28,7 @@ class ForestGrower(val maxTrees: Int,
         new DifferentialPointIterator(pointIterator, lossFunction, forest)
       val treeGrower =
         new TreeGrower(newTree, featureTypes, differentialIterator)
-      // TODO: Implement step to re-calculate predictions for new tree based on
-      // loss function minimization at each leaf.
+      reTrainLeaves(newTree, lossFunction)
       forest.addTree(newTree)
     }
     forest
@@ -39,4 +40,24 @@ class ForestGrower(val maxTrees: Int,
   //
   // **************************************************************************
   
+  private def reTrainLeaves(newTree: Tree,
+      lossFunction: LossFunction): Unit = {
+    val leaves = newTree.getLeaves
+    val nodeToRetrainerMap = new HashMap[Node, LeafRetrainer]
+    pointIterator.reset()
+    while (pointIterator.hasNext()) {
+      val point = pointIterator.next()
+      val leaf = newTree.getLeaf(point.features)
+      if (!nodeToRetrainerMap.contains(leaf)) {
+        nodeToRetrainerMap.put(leaf,
+            LeafRetrainer.createRetrainer(lossFunction))
+      }
+      val retrainer: LeafRetrainer = nodeToRetrainerMap.get(leaf).get
+      retrainer.process(point)
+    }
+    for ((leaf, retrainer) <- nodeToRetrainerMap) {
+      val newPrediction: Double = retrainer.getPrediction()
+      leaf.setPrediction(newPrediction)
+    }
+  }
 }

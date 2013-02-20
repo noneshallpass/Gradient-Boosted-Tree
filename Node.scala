@@ -15,6 +15,11 @@ object EmptyNode {
 }
 
 abstract class Node {
+  def this(pred: Double) {
+    this()
+    prediction = pred
+  }
+  
   // Node errors are currently only stored at the leaves.
   def getError: Double = Double.PositiveInfinity
   
@@ -59,6 +64,9 @@ abstract class Node {
   // Replace this node with a new one. Must be used on leaves only.
   def replaceNode(newNode: Node): Unit = {}
   
+  private[gradientBoostedTree] def setPrediction(
+      pred: Double): Unit = prediction = pred
+  
   // Generate a string of the leaves with the prediction and splitting value(s)
   override def toString: String = {
     stringTraverse("")
@@ -77,7 +85,7 @@ abstract class Node {
   protected val featureIndex: Int = -1
   @BeanProperty protected var leftChild: Node = EmptyNode.getEmptyNode
   @BeanProperty protected var rightChild: Node = EmptyNode.getEmptyNode
-  protected val prediction: Double = 0.0
+  protected var prediction: Double = 0.0
   
   // **************************************************************************
   //
@@ -102,7 +110,7 @@ abstract class Node {
 // prediction: The prediction value, provided this is a leaf node.
 class OrderedNode(override val id: Int,
     override val featureIndex: Int,
-    override val prediction: Double) extends Node {
+    prediction: Double) extends Node(prediction) {
 
   // Return the child leaf node corresponding to the array of values.
   // All features are assumed present. If not enough features are provided
@@ -140,7 +148,7 @@ class OrderedNode(override val id: Int,
 // prediction: The prediction value, provided this is a leaf node.
 class CategoricalNode(override val id: Int,
     override val featureIndex: Int,
-    override val prediction: Double) extends Node {
+    prediction: Double) extends Node(prediction) {
   
   // Return the child leaf node corresponding to the array of values.
   // All features are assumed present. If not enough features are provided
@@ -176,9 +184,9 @@ class CategoricalNode(override val id: Int,
 // A type of data node used for a leaf when growing a tree because
 // the feature index has not yet been decided.
 class UnstructuredNode(
-    override val prediction: Double,
+    prediction: Double,
     val parent: Node,
-    val error: Double) extends Node {
+    val error: Double) extends Node(prediction) {
   
   override def getError: Double = error
   

@@ -11,6 +11,9 @@ abstract class LossFunction {
   // Get the negative derivative of the loss at the
   // residual where residual = actual - predicted.
   def getNegDerivative(residual: Double): Double
+  
+  // Return an optional parameter. Used for Huber Loss.
+  def getParameter: Double = 0.0
 }
 
 
@@ -44,6 +47,8 @@ class HuberLoss(val delta: Double) extends LossFunction {
     if (absResidual <= delta) residual
     else delta * math.signum(residual)
   }
+  
+  override def getParameter: Double = delta
   
   // **************************************************************************
   //
