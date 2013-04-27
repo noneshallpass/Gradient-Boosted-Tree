@@ -56,9 +56,8 @@ class TreeGrowerTest extends FunSuite {
         new FeatureType(isOrdered, Set()),
         new FeatureType(isOrdered, Set())
     )
-    val pointIterator = new TestPointIteratorDim3(1)
-    val treeGrower = new TreeGrower(tree, featureTypes,
-        new TestPointIteratorDim3(numPoints))
+    val pointIterator = new TestPointIteratorDim3(numPoints)
+    val treeGrower = new TreeGrower(tree, featureTypes, pointIterator)
     treeGrower.Grow()
     pointIterator.reset()
     // Check that the tree has no training error over the data.
@@ -75,5 +74,23 @@ class TreeGrowerTest extends FunSuite {
       // All categorical nodes.
       testGrowTreeOnePointPerNode(i, false)      
     }
+  }
+  
+  test("Grow Tree - Single Node") {
+    val tree = new Tree(1, 1)
+    val featureTypes = Array(
+        new FeatureType(true, Set()),
+        new FeatureType(true, Set()),
+        new FeatureType(true, Set())
+    )
+    val pointIterator = new TestPointIteratorDim3(8)
+    val treeGrower = new TreeGrower(tree, featureTypes, pointIterator)
+    treeGrower.Grow()
+    pointIterator.reset()
+    // Check that a single node tree has the average y-value = 35/8
+    while (pointIterator.hasNext()) {
+      val point: Point = pointIterator.next()
+      assert(4.375 === tree.getPrediction(point.features))
+    } 
   }
 }

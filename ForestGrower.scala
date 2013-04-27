@@ -19,7 +19,7 @@ class ForestGrower(val maxTrees: Int,
 
   def Grow(): Forest = {
     val forest: Forest = new Forest
-    // TODO: Create initial tree.
+    createInitialTree(featureTypes, pointIterator, forest)
     for (i <- 1 until maxTrees) {
       val newTree = new Tree(1.0, maxNodesPerTree)
       // TODO: Make the loss function selectable.
@@ -39,6 +39,16 @@ class ForestGrower(val maxTrees: Int,
   // Private
   //
   // **************************************************************************
+  
+  private def createInitialTree(featureTypes: Array[FeatureType],
+      pointIterator: PointIterator, forest: Forest): Unit = {
+    // A single node tree will train to the average y-value
+    val newTree = new Tree(1.0, 1)
+    val treeGrower =
+        new TreeGrower(newTree, featureTypes, pointIterator)
+    treeGrower.Grow()
+    forest.addTree(newTree)
+  }
   
   private def reTrainLeaves(newTree: Tree,
       lossFunction: LossFunction): Unit = {
